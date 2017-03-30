@@ -1,40 +1,41 @@
-###############################################
-#  
+#########################################################################
+#  Template for deploying a machine in VMware vSphere environment v6.0  #
+#  Update below variables to start					#
+#########################################################################
 
+#Connect to vSphere Server
 connect-viserver san-vcenter01.ticprod.com
- 
-$vmName = "oragridlabtest"
-$vmDataStore = "PURE-SAN-LAB-OS02"
-$vmDatastore2 = "PURE-SAN-LAB-DATA02"
-$network = "VDSP-lab-private-db"
-$myTemplate = get-template -name "Windows 2012 R2 Stnd Template 2017-02-01"
 
+#
+$vmName = "oragridlabtest"		#virtual machine name
+$vmDataStore = "PURE-SAN-LAB-OS02"	#Data store for Operating System
+$vmDatastore2 = "PURE-SAN-LAB-DATA02"	#Data store for Data drives
+$network = "VDSP-lab-private-db"	#network of virtual distributed switch
+$myTemplate = get-template -name "Windows 2012 R2 Stnd Template 2017-02-01"	#virtual machine template name
 
-
-$IP = "10.145.140.61"
-$SNM = "255.255.255.0"
-$GW = "10.145.140.3"
-$DNS = "10.145.40.51"
-$DNS2 = "10.145.40.52"
-
-
+$IP = "10.145.140.61"		#IP
+$SNM = "255.255.255.0"		#subnet
+$GW = "10.145.140.3"		#gateway
+$DNS = "10.145.40.51"		#DNS 1
+$DNS2 = "10.145.40.52"		#DNS 2
 
 #resource pools: SD-Prod, SD-Lab
 $rpool = "SD-Lab"
 
 #OS Customizations
 $custom = "Windows 2012 R2 Deploy CLI"
+#########################################################################
 
- 
+
+#Creating the new Virtual Machine
 new-vm -name $vmName -template $myTemplate -ResourcePool $rpool -Datastore $vmDataStore -OSCustomizationSpec $custom
 get-vm $vmName | get-networkadapter | Set-NetworkAdapter -NetworkName $network 
 
-
-
- 
-
+#######Start VM and customization process ##########
 
 start-vm $vmName
+
+#Needs to wait for 
 #Start-Sleep -Seconds 105;
 $x = 105
 $length = $x / 100
@@ -46,7 +47,7 @@ while($x -gt 0) {
   $x--
 }
 
-
+### set up IP in windows
 Function Set-WinVMIP ($VM, $HC, $GC, $IP, $SNM, $GW, $DNS, $DNS2){
  $netsh = "c:\windows\system32\netsh.exe interface ip set address Ethernet0 static $IP $SNM $GW 1"
  $netsh2 = "c:\windows\system32\netsh.exe interface ip add dnsservers Ethernet0 $DNS"
@@ -61,10 +62,13 @@ Function Set-WinVMIP ($VM, $HC, $GC, $IP, $SNM, $GW, $DNS, $DNS2){
  
 }
 
+### add computer to domain
 Function Set-Domain ($VM, $HC, $GC, $domain, $domainuser, $pass){
 	$netdom = "netdom join /d:$domain $vm /userd:$domainuser /passwordd:$pass"
 	Invoke-VMScript -VM $VM -HostCredential $HC -GuestCredential $GC -ScriptType bat $netdom
  }
+
+### set up drives in Windows environment
 
 Function Set-Drives ($VM, $HC, $GC, $drivesizes, $driveletters){
 	$x=1
@@ -76,8 +80,6 @@ Function Set-Drives ($VM, $HC, $GC, $drivesizes, $driveletters){
 		}
 }
  
- 
-$VM = Get-VM ( Read-Host "Enter VM name" )
 $domain = ( Read-Host "Enter domain for adding to domain" )
 
 $drivenumber = (Read-Host "How many data drives?")
